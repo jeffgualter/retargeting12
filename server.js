@@ -42,32 +42,18 @@ app.get('/campaigns', (req, res) => {
     });
 });
 
-// 🔹 Rota para adicionar uma nova campanha
-app.post('/campaigns', (req, res) => {
-    const { name, trackingLink, percentage } = req.body;
-    const slug = name.toLowerCase().replace(/\s+/g, '-'); // Criar slug
-
-    db.run(
-        "INSERT INTO campaigns (name, trackingLink, percentage) VALUES (?, ?, ?)",
-        [name, trackingLink, percentage],
-        function (err) {
-            if (err) {
-                res.status(500).json({ error: err.message });
-            } else {
-                const campaignId = this.lastID;
-                console.log(`✅ Campanha "${name}" cadastrada com sucesso!`);
-                res.json({ id: campaignId, name, trackingLink, percentage, slug });
-            }
-        }
-    );
-});
-
 // 🔹 Rota para gerar scripts dinamicamente
 app.get('/scripts/:scriptName', (req, res) => {
     const campaignSlug = path.basename(req.params.scriptName, '.js'); // Remove .js para pegar o nome real da campanha
+    console.log(`🔍 Buscando campanha: ${campaignSlug}`); // Debug para ver o nome da campanha sendo buscado
 
-    db.get("SELECT trackingLink FROM campaigns WHERE name = ?", [campaignSlug], (err, row) => {
-        if (err || !row) {
+    db.get("SELECT trackingLink FROM campaigns WHERE LOWER(REPLACE(name, ' ', '-')) = LOWER(?)", [campaignSlug], (err, row) => {
+        if (err) {
+            console.error("❌ Erro ao buscar campanha:", err);
+            return res.status(500).send("// Erro no servidor");
+        }
+        if (!row) {
+            console.log("⚠️ Campanha não encontrada:", campaignSlug);
             return res.status(404).send("// Script não encontrado");
         }
 
@@ -80,7 +66,7 @@ app.get('/scripts/:scriptName', (req, res) => {
             (function() {
                 setTimeout(function() {
                     window.location.href = "${cleanURL}";
-                }, 2000); // Delay de 2 segundos antes do redirecionamento
+                }, 2000);
             })();
         `;
 
