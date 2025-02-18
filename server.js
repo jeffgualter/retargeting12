@@ -72,7 +72,7 @@ app.get('/scripts/:scriptName', (req, res) => {
             return res.status(404).send("// Script não encontrado");
         }
 
-        // Gera um script dinâmico para redirecionamento
+        // Gera um script dinâmico para redirecionamento para o tracking link
         const scriptContent = `
             (function() {
                 setTimeout(function() {
@@ -94,13 +94,13 @@ app.get('/redirect', (req, res) => {
         return res.status(400).send("❌ URL inválida!");
     }
 
-    // Extrai o domínio e caminho base da URL final
+    // Extrai o domínio e caminho base da URL final (sem parâmetros)
     const parsedUrl = url.parse(trackingUrl);
     const cleanUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
 
     console.log(`🔁 Redirecionando de: ${trackingUrl} para ${cleanUrl}`);
 
-    res.redirect(cleanUrl);
+    res.redirect(302, cleanUrl);
 });
 
 // 🔹 Iniciar o servidor
