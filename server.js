@@ -17,17 +17,12 @@ app.use('/scripts', (req, res, next) => {
     next();
 }, express.static(path.join(__dirname, 'public/scripts')));
 
-// 🔹 Criar diretório `public/scripts` se não existir
+// 🔹 Criar diretórios se não existirem
 const scriptsDir = path.join(__dirname, 'public/scripts');
-if (!fs.existsSync(scriptsDir)) {
-    fs.mkdirSync(scriptsDir, { recursive: true });
-}
-
-// 🔹 Criar diretório `public/campanha` se não existir
 const campaignsDir = path.join(__dirname, 'public/campanha');
-if (!fs.existsSync(campaignsDir)) {
-    fs.mkdirSync(campaignsDir, { recursive: true });
-}
+[scriptsDir, campaignsDir].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
 
 // 🔹 Página principal
 app.get('/', (req, res) => {
@@ -44,7 +39,10 @@ const db = new sqlite3.Database('./campaigns.db', (err) => {
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL UNIQUE,
             trackingLink TEXT NOT NULL,
-            percentage INTEGER NOT NULL
+            percentage INTEGER NOT NULL,
+            active INTEGER DEFAULT 1,         -- 1 = Ativo, 0 = Inativo
+            startDate TEXT,                   -- Data de início
+            endDate TEXT                      -- Data de término
         )`);
     }
 });
@@ -62,18 +60,17 @@ app.get('/campaigns', (req, res) => {
 
 // 🔹 Rota para adicionar uma nova campanha
 app.post('/campaigns', (req, res) => {
-    const { name, trackingLink, percentage } = req.body;
+    const { name, trackingLink, percentage, active, startDate, endDate } = req.body;
     const slug = name.toLowerCase().replace(/\s+/g, '-'); // Criar slug
 
     db.run(
-        "INSERT INTO campaigns (name, trackingLink, percentage) VALUES (?, ?, ?)",
-        [name, trackingLink, percentage],
+        "INSERT INTO campaigns (name, trackingLink, percentage, active, startDate, endDate) VALUES (?, ?, ?, ?, ?, ?)",
+        [name, trackingLink, percentage, active ?? 1, startDate ?? null, endDate ?? null],
         function (err) {
             if (err) {
                 res.status(500).json({ error: err.message });
             } else {
                 const campaignId = this.lastID;
-
                 console.log(`✅ Campanha "${name}" cadastrada com sucesso!`);
 
                 // 🔹 Criar página HTML da campanha
@@ -100,29 +97,49 @@ app.post('/campaigns', (req, res) => {
 
                 const campaignPath = path.join(campaignsDir, `${slug}.html`);
                 fs.writeFile(campaignPath, campaignHtml, (err) => {
-                    if (err) {
-                        console.error("❌ Erro ao criar página de campanha:", err);
-                    } else {
-                        console.log("✅ Página de campanha criada:", campaignPath);
-                    }
+                    if (err) console.error("❌ Erro ao criar página de campanha:", err);
+                    else console.log("✅ Página de campanha criada:", campaignPath);
                 });
 
                 // 🔹 Criar script encurtado da campanha
-                const campaignScript = `window.location.href = "${trackingLink}";`;
-                const scriptPath = path.join(scriptsDir, `${slug}.js`);
-
-                fs.writeFile(scriptPath, campaignScript, (err) => {
-                    if (err) {
-                        console.error("❌ Erro ao criar script da campanha:", err);
+                const campaignScript = `
+                (function() {
+                    const now = new Date();
+                    const start = ${startDate ? `new Date("${startDate}")` : 'null'};
+                    const end = ${endDate ? `new Date("${endDate}")` : 'null'};
+                    
+                    if (${active} === 1 && (!start || now >= start) && (!end || now <= end)) {
+                        window.location.href = "${trackingLink}";
                     } else {
-                        console.log("✅ Script de redirecionamento criado:", scriptPath);
+                        console.log("🔹 Campanha ${name} está desativada ou fora do período válido.");
                     }
+                })();
+                `;
+
+                const scriptPath = path.join(scriptsDir, `${slug}.js`);
+                fs.writeFile(scriptPath, campaignScript, (err) => {
+                    if (err) console.error("❌ Erro ao criar script da campanha:", err);
+                    else console.log("✅ Script de redirecionamento criado:", scriptPath);
                 });
 
-                res.json({ id: campaignId, name, trackingLink, percentage, slug });
+                res.json({ id: campaignId, name, trackingLink, percentage, slug, active, startDate, endDate });
             }
         }
     );
+});
+
+// 🔹 Rota para atualizar o status da campanha (Ativar/Desativar)
+app.patch('/campaigns/:id', (req, res) => {
+    const { active } = req.body;
+    const { id } = req.params;
+
+    db.run("UPDATE campaigns SET active = ? WHERE id = ?", [active, id], function (err) {
+        if (err) {
+            res.status(500).json({ error: err.message });
+        } else {
+            res.json({ success: true, message: `Campanha ${active ? 'ativada' : 'desativada'} com sucesso!` });
+        }
+    });
 });
 
 // 🔹 Iniciar o servidor
