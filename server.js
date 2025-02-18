@@ -3,6 +3,7 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
+const url = require('url');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -75,7 +76,7 @@ app.get('/scripts/:scriptName', (req, res) => {
         const scriptContent = `
             (function() {
                 setTimeout(function() {
-                    window.location.href = "${row.trackingLink}";
+                    window.location.href = "/redirect?url=${encodeURIComponent(row.trackingLink)}";
                 }, 2000); // Delay de 2 segundos antes do redirecionamento
             })();
         `;
@@ -83,6 +84,23 @@ app.get('/scripts/:scriptName', (req, res) => {
         res.setHeader("Content-Type", "application/javascript");
         res.send(scriptContent);
     });
+});
+
+// 🔹 Rota para redirecionar e camuflar os parâmetros da URL final
+app.get('/redirect', (req, res) => {
+    const trackingUrl = req.query.url;
+
+    if (!trackingUrl) {
+        return res.status(400).send("❌ URL inválida!");
+    }
+
+    // Extrai o domínio e caminho base da URL final
+    const parsedUrl = url.parse(trackingUrl);
+    const cleanUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
+
+    console.log(`🔁 Redirecionando de: ${trackingUrl} para ${cleanUrl}`);
+
+    res.redirect(cleanUrl);
 });
 
 // 🔹 Iniciar o servidor
