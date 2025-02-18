@@ -11,8 +11,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// Servir arquivos estáticos da pasta campanha
-app.use('/campanha', express.static(__dirname + '/public/campanha'));
+app.use('/scripts', express.static(__dirname + '/public/scripts'));
 
 app.get('/', (req, res) => {
     res.sendFile(__dirname + '/public/dashboard.html');
