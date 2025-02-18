@@ -23,7 +23,13 @@ if (!fs.existsSync(scriptsDir)) {
     fs.mkdirSync(scriptsDir, { recursive: true });
 }
 
-// 🔹 Rota da Página Principal
+// 🔹 Criar diretório `public/campanha` se não existir
+const campaignsDir = path.join(__dirname, 'public/campanha');
+if (!fs.existsSync(campaignsDir)) {
+    fs.mkdirSync(campaignsDir, { recursive: true });
+}
+
+// 🔹 Página principal
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
@@ -31,12 +37,12 @@ app.get('/', (req, res) => {
 // 🔹 Conectar ao banco de dados SQLite
 const db = new sqlite3.Database('./campaigns.db', (err) => {
     if (err) {
-        console.error('Erro ao conectar ao banco de dados', err);
+        console.error('❌ Erro ao conectar ao banco de dados', err);
     } else {
-        console.log('Conectado ao banco de dados SQLite');
+        console.log('✅ Conectado ao banco de dados SQLite');
         db.run(`CREATE TABLE IF NOT EXISTS campaigns (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
+            name TEXT NOT NULL UNIQUE,
             trackingLink TEXT NOT NULL,
             percentage INTEGER NOT NULL
         )`);
@@ -68,6 +74,8 @@ app.post('/campaigns', (req, res) => {
             } else {
                 const campaignId = this.lastID;
 
+                console.log(`✅ Campanha "${name}" cadastrada com sucesso!`);
+
                 // 🔹 Criar página HTML da campanha
                 const campaignHtml = `
                 <!DOCTYPE html>
@@ -90,7 +98,7 @@ app.post('/campaigns', (req, res) => {
                 </html>
                 `;
 
-                const campaignPath = path.join(__dirname, 'public/campanha', `${slug}.html`);
+                const campaignPath = path.join(campaignsDir, `${slug}.html`);
                 fs.writeFile(campaignPath, campaignHtml, (err) => {
                     if (err) {
                         console.error("❌ Erro ao criar página de campanha:", err);
@@ -119,5 +127,5 @@ app.post('/campaigns', (req, res) => {
 
 // 🔹 Iniciar o servidor
 app.listen(PORT, () => {
-    console.log(`✅ Servidor rodando na porta ${PORT}`);
+    console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
