@@ -3,46 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel de Campanhas</title>
-    <style>
-        body { font-family: Arial, sans-serif; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; 
-}
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background-color: #f4f4f4; }
-        .form-container { margin-top: 20px; }
-    </style>
+    <title>Painel de Gerenciamento de Campanhas</title>
+    <script defer src="script.js"></script>
 </head>
 <body>
-    <h2>Painel de Gerenciamento de Campanhas</h2>
-    <table id="campaignTable">
+    <h1>Painel de Gerenciamento de Campanhas</h1>
+
+    <table border="1">
         <thead>
             <tr>
                 <th>ID</th>
                 <th>Nome</th>
                 <th>Tracking Link</th>
                 <th>Porcentagem</th>
+                <th>Ativo</th>
+                <th>Data de Início</th>
+                <th>Data de Término</th>
                 <th>Ações</th>
             </tr>
         </thead>
-        <tbody></tbody>
+        <tbody id="campaignTable">
+            <!-- As campanhas serão carregadas aqui -->
+        </tbody>
     </table>
 
-    <div class="form-container">
-        <h3>Adicionar/Editar Campanha</h3>
-        <form id="campaignForm">
-            <input type="hidden" id="campaignId">
-            <label>Nome:</label>
-            <input type="text" id="campaignName" required>
-            <label>Tracking Link:</label>
-            <input type="text" id="trackingLink" required>
-            <label>Porcentagem:</label>
-            <input type="number" id="percentage" required>
-            <button type="submit">Salvar</button>
-        </form>
-    </div>
-
-    <script src="/script.js"></script>
+    <h2>Adicionar/Editar Campanha</h2>
+    <form id="campaignForm">
+        <input type="hidden" id="campaignId">
+        <label>Nome: <input type="text" id="campaignName" required></label>
+        <label>Tracking Link: <input type="text" id="trackingLink" required></label>
+        <label>Porcentagem: <input type="number" id="percentage" required></label>
+        <label>Ativo: <input type="checkbox" id="active"></label>
+        <label>Data de Início: <input type="datetime-local" id="startDate"></label>
+        <label>Data de Término: <input type="datetime-local" id="endDate"></label>
+        <button type="submit">Salvar</button>
+    </form>
 </body>
 </html>
 
