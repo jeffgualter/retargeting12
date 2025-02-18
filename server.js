@@ -94,9 +94,9 @@ app.get('/redirect', (req, res) => {
         return res.status(400).send("❌ URL inválida!");
     }
 
-    // Extrai o domínio e caminho base da URL final (sem parâmetros)
-    const parsedUrl = url.parse(trackingUrl);
-    const cleanUrl = `${parsedUrl.protocol}//${parsedUrl.host}${parsedUrl.pathname}`;
+    // Extrai apenas o domínio e caminho base da URL final, removendo parâmetros
+    const parsedUrl = new URL(trackingUrl);
+    const cleanUrl = `${parsedUrl.origin}${parsedUrl.pathname}`;
 
     console.log(`🔁 Redirecionando de: ${trackingUrl} para ${cleanUrl}`);
 
