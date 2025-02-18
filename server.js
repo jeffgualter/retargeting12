@@ -11,9 +11,21 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 🔹 Página principal
+// 🔹 Corrige Content-Type dos scripts para evitar erro "nosniff"
+app.use('/scripts', (req, res, next) => {
+    res.setHeader("Content-Type", "application/javascript");
+    next();
+}, express.static(path.join(__dirname, 'public/scripts')));
+
+// 🔹 Criar diretório `public/scripts` se não existir
+const scriptsDir = path.join(__dirname, 'public/scripts');
+if (!fs.existsSync(scriptsDir)) {
+    fs.mkdirSync(scriptsDir, { recursive: true });
+}
+
+// 🔹 Rota da Página Principal
 app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/public/dashboard.html');
+    res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
 // 🔹 Conectar ao banco de dados SQLite
@@ -21,10 +33,10 @@ const db = new sqlite3.Database('./campaigns.db', (err) => {
     if (err) {
         console.error('Erro ao conectar ao banco de dados', err);
     } else {
-        console.log('✅ Conectado ao banco de dados SQLite');
+        console.log('Conectado ao banco de dados SQLite');
         db.run(`CREATE TABLE IF NOT EXISTS campaigns (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL UNIQUE,
+            name TEXT NOT NULL,
             trackingLink TEXT NOT NULL,
             percentage INTEGER NOT NULL
         )`);
@@ -42,40 +54,70 @@ app.get('/campaigns', (req, res) => {
     });
 });
 
-// 🔹 Rota para gerar scripts dinamicamente
-app.get('/scripts/:scriptName', (req, res) => {
-    const campaignSlug = path.basename(req.params.scriptName, '.js'); // Remove .js para pegar o nome real da campanha
-    console.log(`🔍 Buscando campanha: ${campaignSlug}`); // Debug para ver o nome da campanha sendo buscado
+// 🔹 Rota para adicionar uma nova campanha
+app.post('/campaigns', (req, res) => {
+    const { name, trackingLink, percentage } = req.body;
+    const slug = name.toLowerCase().replace(/\s+/g, '-'); // Criar slug
 
-    db.get("SELECT trackingLink FROM campaigns WHERE LOWER(REPLACE(name, ' ', '-')) = LOWER(?)", [campaignSlug], (err, row) => {
-        if (err) {
-            console.error("❌ Erro ao buscar campanha:", err);
-            return res.status(500).send("// Erro no servidor");
+    db.run(
+        "INSERT INTO campaigns (name, trackingLink, percentage) VALUES (?, ?, ?)",
+        [name, trackingLink, percentage],
+        function (err) {
+            if (err) {
+                res.status(500).json({ error: err.message });
+            } else {
+                const campaignId = this.lastID;
+
+                // 🔹 Criar página HTML da campanha
+                const campaignHtml = `
+                <!DOCTYPE html>
+                <html lang="pt-BR">
+                <head>
+                    <meta charset="UTF-8">
+                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                    <title>${name}</title>
+                </head>
+                <body>
+                    <h1>Campanha: ${name}</h1>
+                    <p>Tracking Link: <a href="${trackingLink}" target="_blank">${trackingLink}</a></p>
+                    <p>Porcentagem: ${percentage}%</p>
+                    <script>
+                        setTimeout(() => {
+                            window.location.href = "${trackingLink}";
+                        }, 3000);
+                    </script>
+                </body>
+                </html>
+                `;
+
+                const campaignPath = path.join(__dirname, 'public/campanha', `${slug}.html`);
+                fs.writeFile(campaignPath, campaignHtml, (err) => {
+                    if (err) {
+                        console.error("❌ Erro ao criar página de campanha:", err);
+                    } else {
+                        console.log("✅ Página de campanha criada:", campaignPath);
+                    }
+                });
+
+                // 🔹 Criar script encurtado da campanha
+                const campaignScript = `window.location.href = "${trackingLink}";`;
+                const scriptPath = path.join(scriptsDir, `${slug}.js`);
+
+                fs.writeFile(scriptPath, campaignScript, (err) => {
+                    if (err) {
+                        console.error("❌ Erro ao criar script da campanha:", err);
+                    } else {
+                        console.log("✅ Script de redirecionamento criado:", scriptPath);
+                    }
+                });
+
+                res.json({ id: campaignId, name, trackingLink, percentage, slug });
+            }
         }
-        if (!row) {
-            console.log("⚠️ Campanha não encontrada:", campaignSlug);
-            return res.status(404).send("// Script não encontrado");
-        }
-
-        // 🔹 Extração da URL Base para ocultar parâmetros finais
-        let trackingURL = row.trackingLink;
-        let cleanURL = trackingURL.split(/[?#]/)[0]; // Remove tudo após '?' ou '#'
-
-        // 🔹 Gera um script dinâmico para redirecionamento
-        const scriptContent = `
-            (function() {
-                setTimeout(function() {
-                    window.location.href = "${cleanURL}";
-                }, 2000);
-            })();
-        `;
-
-        res.setHeader("Content-Type", "application/javascript");
-        res.send(scriptContent);
-    });
+    );
 });
 
 // 🔹 Iniciar o servidor
 app.listen(PORT, () => {
-    console.log(`🚀 Servidor rodando na porta ${PORT}`);
+    console.log(`✅ Servidor rodando na porta ${PORT}`);
 });
