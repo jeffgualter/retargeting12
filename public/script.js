@@ -70,7 +70,8 @@ async function fetchCampaigns() {
                 <td><a href="${campaign.trackingLink}" target="_blank">${campaign.trackingLink}</a></td>
                 <td>${campaign.percentage}%</td>
                 <td>
-                    <button onclick="toggleCampaignScripts('${slug}', '${campaign.trackingLink}')">Editar</button>
+                    <button onclick="toggleCampaignScripts('${slug}', '${campaign.trackingLink}')">Ver Scripts</button>
+                    <button onclick="deleteCampaign(${campaign.id})" style="background-color: red; color: white;">Excluir</button>
                 </td>
             `;
             tableBody.appendChild(row);
@@ -98,4 +99,24 @@ function toggleCampaignScripts(slug, trackingLink) {
         </td>
     `;
     document.querySelector(`#campaignTable tbody`).appendChild(scriptContainer);
+}
+
+// 🔹 Nova função para excluir campanha
+async function deleteCampaign(id) {
+    if (!confirm("Tem certeza que deseja excluir esta campanha? Essa ação não pode ser desfeita!")) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/campaigns/${id}`, { method: 'DELETE' });
+
+        if (response.ok) {
+            console.log(`✅ Campanha ${id} excluída com sucesso!`);
+            fetchCampaigns(); // Atualiza a tabela após exclusão
+        } else {
+            console.error("❌ Erro ao excluir campanha.");
+        }
+    } catch (error) {
+        console.error("❌ Erro ao excluir campanha:", error);
+    }
 }

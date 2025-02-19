@@ -125,6 +125,44 @@ app.post('/campaigns', (req, res) => {
     );
 });
 
+// 🔹 Rota para excluir campanha
+app.delete('/campaigns/:id', (req, res) => {
+    const campaignId = req.params.id;
+
+    db.get("SELECT name FROM campaigns WHERE id = ?", [campaignId], (err, row) => {
+        if (err || !row) {
+            return res.status(404).json({ error: "Campanha não encontrada!" });
+        }
+
+        const slug = row.name.toLowerCase().replace(/\s+/g, '-');
+        const scriptPath = path.join(scriptsDir, `${slug}.js`);
+        const campaignPath = path.join(campaignsDir, `${slug}.html`);
+
+        // 🔹 Deleta a campanha do banco de dados
+        db.run("DELETE FROM campaigns WHERE id = ?", [campaignId], (err) => {
+            if (err) {
+                return res.status(500).json({ error: err.message });
+            }
+
+            console.log(`❌ Campanha "${row.name}" removida do banco de dados.`);
+
+            // 🔹 Deleta o script associado, se existir
+            if (fs.existsSync(scriptPath)) {
+                fs.unlinkSync(scriptPath);
+                console.log(`✅ Script removido: ${scriptPath}`);
+            }
+
+            // 🔹 Deleta a página da campanha, se existir
+            if (fs.existsSync(campaignPath)) {
+                fs.unlinkSync(campaignPath);
+                console.log(`✅ Página da campanha removida: ${campaignPath}`);
+            }
+
+            res.json({ success: true, message: "Campanha excluída com sucesso!" });
+        });
+    });
+});
+
 // 🔹 Iniciar o servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
