@@ -73,42 +73,14 @@ app.post('/campaigns', (req, res) => {
                 res.status(500).json({ error: err.message });
             } else {
                 const campaignId = this.lastID;
-
                 console.log(`✅ Campanha "${name}" cadastrada com sucesso!`);
 
-                // 🔹 Criar página HTML da campanha
-                const campaignHtml = `
-                <!DOCTYPE html>
-                <html lang="pt-BR">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>${name}</title>
-                </head>
-                <body>
-                    <h1>Campanha: ${name}</h1>
-                    <p>Tracking Link: <a href="${trackingLink}" target="_blank">${trackingLink}</a></p>
-                    <p>Porcentagem: ${percentage}%</p>
-                    <script>
-                        setTimeout(() => {
-                            window.location.href = "${trackingLink}";
-                        }, 3000);
-                    </script>
-                </body>
-                </html>
-                `;
-
-                const campaignPath = path.join(campaignsDir, `${slug}.html`);
-                fs.writeFile(campaignPath, campaignHtml, (err) => {
-                    if (err) {
-                        console.error("❌ Erro ao criar página de campanha:", err);
-                    } else {
-                        console.log("✅ Página de campanha criada:", campaignPath);
+                // 🔹 Criar script encurtado da campanha com lógica de porcentagem
+                const campaignScript = `
+                    if (Math.random() * 100 < ${percentage}) {
+                        window.location.href = "${trackingLink}";
                     }
-                });
-
-                // 🔹 Criar script encurtado da campanha
-                const campaignScript = `window.location.href = "${trackingLink}";`;
+                `;
                 const scriptPath = path.join(scriptsDir, `${slug}.js`);
 
                 fs.writeFile(scriptPath, campaignScript, (err) => {
@@ -136,7 +108,6 @@ app.delete('/campaigns/:id', (req, res) => {
 
         const slug = row.name.toLowerCase().replace(/\s+/g, '-');
         const scriptPath = path.join(scriptsDir, `${slug}.js`);
-        const campaignPath = path.join(campaignsDir, `${slug}.html`);
 
         // 🔹 Deleta a campanha do banco de dados
         db.run("DELETE FROM campaigns WHERE id = ?", [campaignId], (err) => {
@@ -150,12 +121,6 @@ app.delete('/campaigns/:id', (req, res) => {
             if (fs.existsSync(scriptPath)) {
                 fs.unlinkSync(scriptPath);
                 console.log(`✅ Script removido: ${scriptPath}`);
-            }
-
-            // 🔹 Deleta a página da campanha, se existir
-            if (fs.existsSync(campaignPath)) {
-                fs.unlinkSync(campaignPath);
-                console.log(`✅ Página da campanha removida: ${campaignPath}`);
             }
 
             res.json({ success: true, message: "Campanha excluída com sucesso!" });
