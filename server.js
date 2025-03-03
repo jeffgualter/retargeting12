@@ -3,6 +3,7 @@ const cors = require('cors');
 const sqlite3 = require('sqlite3').verbose();
 const fs = require('fs');
 const path = require('path');
+const obfuscator = require('javascript-obfuscator');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -11,23 +12,13 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 🔹 Corrige Content-Type dos scripts para evitar erro "nosniff"
-app.use('/scripts', (req, res, next) => {
-    res.setHeader("Content-Type", "application/javascript");
-    next();
-}, express.static(path.join(__dirname, 'public/scripts')));
-
-// 🔹 Criar diretório `public/scripts` se não existir
+// 🔹 Criar diretórios `public/scripts` e `public/campanha` se não existirem
 const scriptsDir = path.join(__dirname, 'public/scripts');
-if (!fs.existsSync(scriptsDir)) {
-    fs.mkdirSync(scriptsDir, { recursive: true });
-}
-
-// 🔹 Criar diretório `public/campanha` se não existir
 const campaignsDir = path.join(__dirname, 'public/campanha');
-if (!fs.existsSync(campaignsDir)) {
-    fs.mkdirSync(campaignsDir, { recursive: true });
-}
+
+[scriptsDir, campaignsDir].forEach(dir => {
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+});
 
 // 🔹 Página principal
 app.get('/', (req, res) => {
@@ -63,7 +54,7 @@ app.get('/campaigns', (req, res) => {
 // 🔹 Rota para adicionar uma nova campanha
 app.post('/campaigns', (req, res) => {
     const { name, trackingLink, percentage } = req.body;
-    const slug = name.toLowerCase().replace(/\s+/g, '-'); // Criar slug
+    const slug = name.toLowerCase().replace(/\s+/g, '-');
 
     db.run(
         "INSERT INTO campaigns (name, trackingLink, percentage) VALUES (?, ?, ?)",
@@ -73,45 +64,23 @@ app.post('/campaigns', (req, res) => {
                 res.status(500).json({ error: err.message });
             } else {
                 const campaignId = this.lastID;
-
                 console.log(`✅ Campanha "${name}" cadastrada com sucesso!`);
 
-                // 🔹 Criar página HTML da campanha
-                const campaignHtml = `
-                <!DOCTYPE html>
-                <html lang="pt-BR">
-                <head>
-                    <meta charset="UTF-8">
-                    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                    <title>${name}</title>
-                </head>
-                <body>
-                    <h1>Campanha: ${name}</h1>
-                    <p>Tracking Link: <a href="${trackingLink}" target="_blank">${trackingLink}</a></p>
-                    <p>Porcentagem: ${percentage}%</p>
-                    <script>
-                        setTimeout(() => {
-                            window.location.href = "${trackingLink}";
-                        }, 3000);
-                    </script>
-                </body>
-                </html>
+                let rawScript = `
+                    if (Math.random() * 100 < ${percentage}) {
+                        window.location.href = "${trackingLink}";
+                    }
                 `;
 
-                const campaignPath = path.join(campaignsDir, `${slug}.html`);
-                fs.writeFile(campaignPath, campaignHtml, (err) => {
-                    if (err) {
-                        console.error("❌ Erro ao criar página de campanha:", err);
-                    } else {
-                        console.log("✅ Página de campanha criada:", campaignPath);
-                    }
-                });
+                // 🔹 Ofuscar o script
+                const obfuscatedScript = obfuscator.obfuscate(rawScript, {
+                    compact: true,
+                    controlFlowFlattening: true,
+                }).getObfuscatedCode();
 
-                // 🔹 Criar script encurtado da campanha
-                const campaignScript = `window.location.href = "${trackingLink}";`;
+                // 🔹 Salvar script ofuscado no servidor
                 const scriptPath = path.join(scriptsDir, `${slug}.js`);
-
-                fs.writeFile(scriptPath, campaignScript, (err) => {
+                fs.writeFile(scriptPath, obfuscatedScript, (err) => {
                     if (err) {
                         console.error("❌ Erro ao criar script da campanha:", err);
                     } else {
@@ -125,6 +94,19 @@ app.post('/campaigns', (req, res) => {
     );
 });
 
+// 🔹 Rota protegida para servir os scripts
+app.get('/scripts/:slug.js', (req, res) => {
+    const { slug } = req.params;
+    const scriptPath = path.join(scriptsDir, `${slug}.js`);
+
+    if (fs.existsSync(scriptPath)) {
+        res.setHeader("Content-Type", "application/javascript");
+        res.sendFile(scriptPath);
+    } else {
+        res.status(404).send("Script não encontrado");
+    }
+});
+
 // 🔹 Rota para excluir campanha
 app.delete('/campaigns/:id', (req, res) => {
     const campaignId = req.params.id;
@@ -136,9 +118,7 @@ app.delete('/campaigns/:id', (req, res) => {
 
         const slug = row.name.toLowerCase().replace(/\s+/g, '-');
         const scriptPath = path.join(scriptsDir, `${slug}.js`);
-        const campaignPath = path.join(campaignsDir, `${slug}.html`);
 
-        // 🔹 Deleta a campanha do banco de dados
         db.run("DELETE FROM campaigns WHERE id = ?", [campaignId], (err) => {
             if (err) {
                 return res.status(500).json({ error: err.message });
@@ -146,16 +126,9 @@ app.delete('/campaigns/:id', (req, res) => {
 
             console.log(`❌ Campanha "${row.name}" removida do banco de dados.`);
 
-            // 🔹 Deleta o script associado, se existir
             if (fs.existsSync(scriptPath)) {
                 fs.unlinkSync(scriptPath);
                 console.log(`✅ Script removido: ${scriptPath}`);
-            }
-
-            // 🔹 Deleta a página da campanha, se existir
-            if (fs.existsSync(campaignPath)) {
-                fs.unlinkSync(campaignPath);
-                console.log(`✅ Página da campanha removida: ${campaignPath}`);
             }
 
             res.json({ success: true, message: "Campanha excluída com sucesso!" });
