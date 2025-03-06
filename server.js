@@ -12,7 +12,6 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
 
-// 🔹 Criar diretórios `public/scripts` e `public/campanha` se não existirem
 const scriptsDir = path.join(__dirname, 'public/scripts');
 const campaignsDir = path.join(__dirname, 'public/campanha');
 
@@ -20,12 +19,10 @@ const campaignsDir = path.join(__dirname, 'public/campanha');
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
 });
 
-// 🔹 Página principal
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public/dashboard.html'));
 });
 
-// 🔹 Conectar ao banco de dados SQLite
 const db = new sqlite3.Database('./campaigns.db', (err) => {
     if (err) {
         console.error('❌ Erro ao conectar ao banco de dados', err);
@@ -40,7 +37,6 @@ const db = new sqlite3.Database('./campaigns.db', (err) => {
     }
 });
 
-// 🔹 Rota para listar campanhas
 app.get('/campaigns', (req, res) => {
     db.all('SELECT * FROM campaigns', [], (err, rows) => {
         if (err) {
@@ -51,7 +47,6 @@ app.get('/campaigns', (req, res) => {
     });
 });
 
-// 🔹 Rota para adicionar uma nova campanha
 app.post('/campaigns', (req, res) => {
     const { name, trackingLink, percentage } = req.body;
     const slug = name.toLowerCase().replace(/\s+/g, '-');
@@ -72,13 +67,11 @@ app.post('/campaigns', (req, res) => {
                     }
                 `;
 
-                // 🔹 Ofuscar o script
                 const obfuscatedScript = obfuscator.obfuscate(rawScript, {
                     compact: true,
                     controlFlowFlattening: true,
                 }).getObfuscatedCode();
 
-                // 🔹 Criar script encurtado no formato exigido
                 let shortScript = `
                     (function(){
                         var s = document.createElement("script");
@@ -89,7 +82,6 @@ app.post('/campaigns', (req, res) => {
                     })();
                 `;
 
-                // 🔹 Salvar script ofuscado no servidor
                 const scriptPath = path.join(scriptsDir, `${slug}.js`);
                 fs.writeFile(scriptPath, obfuscatedScript, (err) => {
                     if (err) {
@@ -105,7 +97,6 @@ app.post('/campaigns', (req, res) => {
     );
 });
 
-// 🔹 Rota protegida para servir os scripts
 app.get('/scripts/:slug.js', (req, res) => {
     const { slug } = req.params;
     const scriptPath = path.join(scriptsDir, `${slug}.js`);
@@ -118,7 +109,6 @@ app.get('/scripts/:slug.js', (req, res) => {
     }
 });
 
-// 🔹 Rota para excluir campanha
 app.delete('/campaigns/:id', (req, res) => {
     const campaignId = req.params.id;
 
@@ -147,7 +137,6 @@ app.delete('/campaigns/:id', (req, res) => {
     });
 });
 
-// 🔹 Iniciar o servidor
 app.listen(PORT, () => {
     console.log(`🚀 Servidor rodando na porta ${PORT}`);
 });
