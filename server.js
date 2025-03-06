@@ -78,6 +78,17 @@ app.post('/campaigns', (req, res) => {
                     controlFlowFlattening: true,
                 }).getObfuscatedCode();
 
+                // 🔹 Criar script encurtado no formato exigido
+                let shortScript = `
+                    (function(){
+                        var s = document.createElement("script");
+                        s.async = true;
+                        s.src = (document.location.protocol == "https:" ? "https:" : "http:") + "//" + location.host + "/scripts/${slug}.js";
+                        var a = document.getElementsByTagName("script")[0];
+                        a.parentNode.insertBefore(s, a);
+                    })();
+                `;
+
                 // 🔹 Salvar script ofuscado no servidor
                 const scriptPath = path.join(scriptsDir, `${slug}.js`);
                 fs.writeFile(scriptPath, obfuscatedScript, (err) => {
@@ -88,7 +99,7 @@ app.post('/campaigns', (req, res) => {
                     }
                 });
 
-                res.json({ id: campaignId, name, trackingLink, percentage, slug });
+                res.json({ id: campaignId, name, trackingLink, percentage, slug, shortScript });
             }
         }
     );
